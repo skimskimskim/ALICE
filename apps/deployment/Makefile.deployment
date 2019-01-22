@@ -1,0 +1,1 @@
+deployment_src = deployment.c deployment-log.c simple-energest.c
