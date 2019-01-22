@@ -38,6 +38,10 @@
 #include "contiki.h"
 #include "orchestra.h"
 
+#include "net/ipv6/uip-ds6-route.h"
+#include "net/packetbuf.h"
+#include "net/rpl/rpl-conf.h"
+
 static uint16_t slotframe_handle = 0;
 static uint16_t channel_offset = 0;
 
@@ -48,10 +52,25 @@ static uint16_t channel_offset = 0;
 /* There is no slotframe for EBs, use this slotframe both EB and non-EB traffic */
 #define ORCHESTRA_COMMON_SHARED_TYPE              LINK_TYPE_ADVERTISING
 #endif
-
 /*---------------------------------------------------------------------------*/
 static int
-select_packet(uint16_t *slotframe, uint16_t *timeslot)
+neighbor_has_uc_link(const linkaddr_t *linkaddr)
+{
+  if(linkaddr != NULL && !linkaddr_cmp(linkaddr, &linkaddr_null)) {
+    if(orchestra_parent_knows_us 
+//    if((orchestra_parent_knows_us || !ORCHESTRA_UNICAST_SENDER_BASED)
+       && linkaddr_cmp(&orchestra_parent_linkaddr, linkaddr)) {
+      return 1;
+    }
+    if(nbr_table_get_from_lladdr(nbr_routes, (linkaddr_t *)linkaddr) != NULL && !linkaddr_cmp(&orchestra_parent_linkaddr, linkaddr)) {
+      return 1;
+    }
+  }
+  return 0;
+}
+/*---------------------------------------------------------------------------*/
+static int
+select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
 {
   /* We are the default slotframe, select anything */
   if(slotframe != NULL) {
@@ -60,6 +79,18 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot)
   if(timeslot != NULL) {
     *timeslot = 0;
   }
+  if(channel_offset != NULL) {
+    *channel_offset = slotframe_handle;
+  }
+
+
+  //ksh.. return 0 and pass to unicast slotframe
+  const linkaddr_t *dest = packetbuf_addr(PACKETBUF_ADDR_RECEIVER);
+  if(packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE) == FRAME802154_DATAFRAME && neighbor_has_uc_link(dest)) {
+    return 0;
+  }//ksh.. 
+
+
   return 1;
 }
 /*---------------------------------------------------------------------------*/

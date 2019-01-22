@@ -46,6 +46,11 @@
 #include <stdio.h>
 #include <string.h>
 
+int dc_radio=0; //ksh..
+int dc_tx=0;//ksh..
+int dc_listen=0;//ksh..
+
+
 struct powertrace_sniff_stats {
   struct powertrace_sniff_stats *next;
   unsigned long num_input, num_output;
@@ -88,106 +93,75 @@ powertrace_print(char *str)
 
   energest_flush();
 
-  all_cpu = energest_type_time(ENERGEST_TYPE_CPU);
-  all_lpm = energest_type_time(ENERGEST_TYPE_LPM);
+  all_cpu = energest_type_time(ENERGEST_TYPE_CPU); //ksh.. .
+//  all_lpm = energest_type_time(ENERGEST_TYPE_LPM);
   all_transmit = energest_type_time(ENERGEST_TYPE_TRANSMIT);
   all_listen = energest_type_time(ENERGEST_TYPE_LISTEN);
-  all_idle_transmit = compower_idle_activity.transmit;
-  all_idle_listen = compower_idle_activity.listen;
+//  all_idle_transmit = compower_idle_activity.transmit;
+//  all_idle_listen = compower_idle_activity.listen;
 
   cpu = all_cpu - last_cpu;
-  lpm = all_lpm - last_lpm;
+//  lpm = all_lpm - last_lpm;
   transmit = all_transmit - last_transmit;
   listen = all_listen - last_listen;
-  idle_transmit = compower_idle_activity.transmit - last_idle_transmit;
-  idle_listen = compower_idle_activity.listen - last_idle_listen;
+//  idle_transmit = compower_idle_activity.transmit - last_idle_transmit;
+//  idle_listen = compower_idle_activity.listen - last_idle_listen;
+
+  int flag=0;
+  if(last_cpu>all_cpu && last_transmit >all_transmit && last_listen >all_listen ){
+    flag=1;
+  }
+
 
   last_cpu = energest_type_time(ENERGEST_TYPE_CPU);
-  last_lpm = energest_type_time(ENERGEST_TYPE_LPM);
+//  last_lpm = energest_type_time(ENERGEST_TYPE_LPM);
   last_transmit = energest_type_time(ENERGEST_TYPE_TRANSMIT);
   last_listen = energest_type_time(ENERGEST_TYPE_LISTEN);
-  last_idle_listen = compower_idle_activity.listen;
-  last_idle_transmit = compower_idle_activity.transmit;
+//  last_idle_listen = compower_idle_activity.listen;
+//  last_idle_transmit = compower_idle_activity.transmit;
+
+//printf("  energyest -> %03d, %03d, %03d\n", last_cpu, last_transmit, last_listen);
+
 
   radio = transmit + listen;
-  time = cpu + lpm;
-  all_time = all_cpu + all_lpm;
-  all_radio = energest_type_time(ENERGEST_TYPE_LISTEN) +
-    energest_type_time(ENERGEST_TYPE_TRANSMIT);
+  time = cpu;
+  all_time = all_cpu;
+  all_radio = energest_type_time(ENERGEST_TYPE_LISTEN) + energest_type_time(ENERGEST_TYPE_TRANSMIT);
 
-  printf("%s %lu P %d.%d %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu (radio %d.%02d%% / %d.%02d%% tx %d.%02d%% / %d.%02d%% listen %d.%02d%% / %d.%02d%%)\n",
-         str,
-         clock_time(), linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1], seqno,
-         all_cpu, all_lpm, all_transmit, all_listen, all_idle_transmit, all_idle_listen,
-         cpu, lpm, transmit, listen, idle_transmit, idle_listen,
+
+  if(flag==0){
+
+/*       printf("duty cycle (radio %d.%02d%% / %d.%02d%% tx %d.%02d%% / %d.%02d%% listen %d.%02d%% / %d.%02d%%)\n",
          (int)((100L * (all_transmit + all_listen)) / all_time),
-         (int)((10000L * (all_transmit + all_listen) / all_time) - (100L * (all_transmit + all_listen) / all_time) * 100),
+         (int)((10000L * (all_transmit + all_listen) / all_time)) - (int)((100L * (all_transmit + all_listen) / all_time)) * 100,
          (int)((100L * (transmit + listen)) / time),
-         (int)((10000L * (transmit + listen) / time) - (100L * (transmit + listen) / time) * 100),
+         (int)((10000L * (transmit + listen) / time)) - (int)( (100L * (transmit + listen) / time))* 100,
+
          (int)((100L * all_transmit) / all_time),
-         (int)((10000L * all_transmit) / all_time - (100L * all_transmit / all_time) * 100),
+         (int)((10000L * all_transmit) / all_time ) - (int)( (100L * all_transmit / all_time)) * 100,
          (int)((100L * transmit) / time),
-         (int)((10000L * transmit) / time - (100L * transmit / time) * 100),
+         (int)((10000L * transmit) / time ) - (int) (100L * transmit / time) * 100,
+
          (int)((100L * all_listen) / all_time),
-         (int)((10000L * all_listen) / all_time - (100L * all_listen / all_time) * 100),
+         (int)((10000L * all_listen) / all_time ) - (int)( (100L * all_listen / all_time)) * 100,
          (int)((100L * listen) / time),
-         (int)((10000L * listen) / time - (100L * listen / time) * 100));
+         (int)((10000L * listen) / time ) - (int)( (100L * listen / time)) * 100);
+*/
 
-  for(s = list_head(stats_list); s != NULL; s = list_item_next(s)) {
+       dc_radio = (int)((10000L * (transmit + listen) / time));
+       dc_tx = (int)((10000L * transmit) / time );
+       dc_listen = (int)((10000L * listen) / time );
 
-#if ! NETSTACK_CONF_WITH_IPV6
-    printf("%s %lu SP %d.%d %lu %u %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu (channel %d radio %d.%02d%% / %d.%02d%%)\n",
-           str, clock_time(), linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1], seqno,
-           s->channel,
-           s->num_input, s->input_txtime, s->input_rxtime,
-           s->input_txtime - s->last_input_txtime,
-           s->input_rxtime - s->last_input_rxtime,
-           s->num_output, s->output_txtime, s->output_rxtime,
-           s->output_txtime - s->last_output_txtime,
-           s->output_rxtime - s->last_output_rxtime,
-           s->channel,
-           (int)((100L * (s->input_rxtime + s->input_txtime + s->output_rxtime + s->output_txtime)) / all_radio),
-           (int)((10000L * (s->input_rxtime + s->input_txtime + s->output_rxtime + s->output_txtime)) / all_radio),
-           (int)((100L * (s->input_rxtime + s->input_txtime +
-                          s->output_rxtime + s->output_txtime -
-                          (s->last_input_rxtime + s->last_input_txtime +
-                           s->last_output_rxtime + s->last_output_txtime))) /
-                 radio),
-           (int)((10000L * (s->input_rxtime + s->input_txtime +
-                          s->output_rxtime + s->output_txtime -
-                          (s->last_input_rxtime + s->last_input_txtime +
-                           s->last_output_rxtime + s->last_output_txtime))) /
-                 radio));
-#else
-    printf("%s %lu SP %d.%d %lu %u %u %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu (proto %u(%u) radio %d.%02d%% / %d.%02d%%)\n",
-           str, clock_time(), linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1], seqno,
-           s->proto, s->channel,
-           s->num_input, s->input_txtime, s->input_rxtime,
-           s->input_txtime - s->last_input_txtime,
-           s->input_rxtime - s->last_input_rxtime,
-           s->num_output, s->output_txtime, s->output_rxtime,
-           s->output_txtime - s->last_output_txtime,
-           s->output_rxtime - s->last_output_rxtime,
-           s->proto, s->channel,
-           (int)((100L * (s->input_rxtime + s->input_txtime + s->output_rxtime + s->output_txtime)) / all_radio),
-           (int)((10000L * (s->input_rxtime + s->input_txtime + s->output_rxtime + s->output_txtime)) / all_radio),
-           (int)((100L * (s->input_rxtime + s->input_txtime +
-                          s->output_rxtime + s->output_txtime -
-                          (s->last_input_rxtime + s->last_input_txtime +
-                           s->last_output_rxtime + s->last_output_txtime))) /
-                 radio),
-           (int)((10000L * (s->input_rxtime + s->input_txtime +
-                          s->output_rxtime + s->output_txtime -
-                          (s->last_input_rxtime + s->last_input_txtime +
-                           s->last_output_rxtime + s->last_output_txtime))) /
-                 radio));
-#endif
-    s->last_input_txtime = s->input_txtime;
-    s->last_input_rxtime = s->input_rxtime;
-    s->last_output_txtime = s->output_txtime;
-    s->last_output_rxtime = s->output_rxtime;
-    
+
+      /* printf("duty cycle (radio %04d / %04d tx %04d / %04d listen %04d / %04d)\n",
+         (int)((10000L * (all_transmit + all_listen) / all_time)),          (int)((10000L * (transmit + listen) / time) ),
+         (int)((10000L * all_transmit) / all_time ),          (int)((10000L * transmit) / time ),
+         (int)((10000L * all_listen) / all_time ),          (int)((10000L * listen) / time ) );
+       */
+  }else{
+      //printf("duty cycle error: %d %d %d\n", cpu, transmit, listen);
   }
+
   seqno++;
 }
 /*---------------------------------------------------------------------------*/
@@ -216,6 +190,11 @@ PROCESS_THREAD(powertrace_process, ev, data)
 void
 powertrace_start(clock_time_t period)
 {
+
+  dc_radio = 0;
+  dc_tx = 0;
+  dc_listen = 0;
+
   process_start(&powertrace_process, (void *)&period);
 }
 /*---------------------------------------------------------------------------*/

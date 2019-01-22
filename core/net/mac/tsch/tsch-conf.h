@@ -56,7 +56,7 @@
 /* 2 channels, sequence length 2 */
 #define TSCH_HOPPING_SEQUENCE_2_2 (uint8_t[]){ 20, 25 }
 /* 1 channel, sequence length 1 */
-#define TSCH_HOPPING_SEQUENCE_1_1 (uint8_t[]){ 20 }
+#define TSCH_HOPPING_SEQUENCE_1_1 (uint8_t[]){ 26 }
 
 /* Default hopping sequence, used in case hopping sequence ID == 0 */
 #ifdef TSCH_CONF_DEFAULT_HOPPING_SEQUENCE

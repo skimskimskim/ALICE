@@ -51,8 +51,16 @@
 #include "net/nbr-table.h"
 #include "net/link-stats.h"
 
+
+
+
+
 #define DEBUG DEBUG_NONE
+//#define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
+//......................................
+
+
 
 /* RFC6551 and RFC6719 do not mandate the use of a specific formula to
  * compute the ETX value. This MRHOF implementation relies on the value
@@ -78,15 +86,19 @@
  * in order to switch preferred parent. Default in RFC6719: 192, eq ETX of 1.5.
  * We use a more aggressive setting: 96, eq ETX of 0.75.
  */
-#define PARENT_SWITCH_THRESHOLD 96 /* Eq ETX of 0.75 */
+#define PARENT_SWITCH_THRESHOLD 96 /* Eq ETX (128) of 0.75 */
 #else /* !RPL_MRHOF_SQUARED_ETX */
-#define MAX_LINK_METRIC     2048 /* Eq ETX of 4 */
-#define PARENT_SWITCH_THRESHOLD 160 /* Eq ETX of 1.25 (results in a churn comparable
-to the threshold of 96 in the non-squared case) */
+
+#define MAX_LINK_METRIC     2048 /* Eq ETX of 4 */ 
+#define PARENT_SWITCH_THRESHOLD 160 /* Eq ETX (128) of 1.25 (results in a churn comparable */ 
+
+
+
 #endif /* !RPL_MRHOF_SQUARED_ETX */
 
 /* Reject parents that have a higher path cost than the following. */
 #define MAX_PATH_COST      32768   /* Eq path ETX of 256 */
+
 
 /*---------------------------------------------------------------------------*/
 static void
@@ -119,11 +131,12 @@ parent_link_metric(rpl_parent_t *p)
 {
   const struct link_stats *stats = rpl_get_parent_link_stats(p);
   if(stats != NULL) {
-#if RPL_MRHOF_SQUARED_ETX
+#if RPL_MRHOF_SQUARED_ETX  
+//    printf("RPL::  squared_etx is used \n");
     uint32_t squared_etx = ((uint32_t)stats->etx * stats->etx) / LINK_STATS_ETX_DIVISOR;
     return (uint16_t)MIN(squared_etx, 0xffff);
 #else /* RPL_MRHOF_SQUARED_ETX */
-  return stats->etx;
+  return stats->etx;  
 #endif /* RPL_MRHOF_SQUARED_ETX */
   }
   return 0xffff;
@@ -138,7 +151,7 @@ parent_path_cost(rpl_parent_t *p)
     return 0xffff;
   }
 
-#if RPL_WITH_MC
+#if RPL_WITH_MC 
   /* Handle the different MC types */
   switch(p->dag->instance->mc.type) {
     case RPL_DAG_MC_ETX:
@@ -151,13 +164,15 @@ parent_path_cost(rpl_parent_t *p)
       base = p->rank;
       break;
   }
-#else /* RPL_WITH_MC */
-  base = p->rank;
+#else /* RPL_WITH_MC */ 
+  base = p->rank; 
 #endif /* RPL_WITH_MC */
+
 
   /* path cost upper bound: 0xffff */
   return MIN((uint32_t)base + parent_link_metric(p), 0xffff);
 }
+
 /*---------------------------------------------------------------------------*/
 static rpl_rank_t
 rank_via_parent(rpl_parent_t *p)
@@ -169,11 +184,58 @@ rank_via_parent(rpl_parent_t *p)
     return INFINITE_RANK;
   }
 
+
   min_hoprankinc = p->dag->instance->min_hoprankinc;
   path_cost = parent_path_cost(p);
 
+
+
+
+
+
+
+
+//--------------------------------------------------ksh... for the fixed RPL .. 2017 SNU openmote-cc2538 tesetbed
+#if FIXED_RPL_TOPOLOGY // does not allow other nodes to be set as its parent.
+  uint8_t pid = nbr_table_get_lladdr(rpl_parents, p)->u8[LINKADDR_SIZE-1];
+// not working //  uint8_t pid = nbr_table_get_lladdr(nbr_routes, p)->u8[LINKADDR_SIZE-1];
+
+  if( pid!=get_fixed_rpl_parent_id() ){   
+    PRINTF("RPL:! FIXED RPL TOPOLOGY : Not allowed parent ID (received pid=%u, allowed pid=%u), p_rank: %u\n", pid, get_fixed_rpl_parent_id(), p->rank);
+    return INFINITE_RANK;
+  }else{
+    PRINTF("RPL: FIXED RPL TOPOLOGY : Allowed parent ID (received pid=%u, allowed pid=%u), p_rank: %u\n", pid, get_fixed_rpl_parent_id(), p->rank);
+  }
+#endif
+//---------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
   /* Rank lower-bound: parent rank + min_hoprankinc */
+
+/*
+//....................................................................................original
   return MAX(MIN((uint32_t)p->rank + min_hoprankinc, 0xffff), path_cost);
+*/
+
+//........................................................................................ksh..
+  uint16_t value= MAX(MIN((uint32_t)p->rank + min_hoprankinc, 0xffff), path_cost);
+  if(value == 0xffff) {
+    return value;
+  }
+
+  return MIN(value, 0xffff);
+//........................................................................................
+
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -213,8 +275,11 @@ best_parent(rpl_parent_t *p1, rpl_parent_t *p2)
   }
 
   dag = p1->dag; /* Both parents are in the same DAG. */
-  p1_cost = parent_path_cost(p1);
-  p2_cost = parent_path_cost(p2);
+  
+
+  //ksh.. original source code compares path_cost rather than directly comparing rank_via_parent.
+  p1_cost = rank_via_parent(p1);//ksh.. parent_path_cost(p1); //rank_via_parent(p1);//ksh.. 
+  p2_cost = rank_via_parent(p2);//ksh.. parent_path_cost(p2); //rank_via_parent(p2);//ksh.. 
 
   /* Maintain stability of the preferred parent in case of similar ranks. */
   if(p1 == dag->preferred_parent || p2 == dag->preferred_parent) {

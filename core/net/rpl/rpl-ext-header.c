@@ -50,7 +50,11 @@
 #include "net/rpl/rpl-private.h"
 #include "net/rpl/rpl-ns.h"
 #include "net/packetbuf.h"
-
+/*
+#define DEBUG DEBUG_PRINT
+#include "net/net-debug.h"
+#include "net/ip/uip-debug.h"
+*/
 #define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
@@ -170,9 +174,15 @@ rpl_verify_hbh_header(int uip_ext_opt_offset)
     return 1;
   }
 
-  PRINTF("RPL: Rank OK\n");
+
+
+
+
+
+
   return 1;
 }
+
 /*---------------------------------------------------------------------------*/
 #if RPL_WITH_NON_STORING
 int
@@ -484,6 +494,7 @@ update_hbh_header(void)
       PRINTF("RPL: Hop-by-hop extension header has wrong size (%u %u)\n",
           UIP_EXT_HDR_OPT_RPL_BUF->opt_len,
           uip_ext_len);
+num_pktdrop_rpl++;//ksh
       return 0; /* Drop */
     }
 
@@ -491,6 +502,7 @@ update_hbh_header(void)
     if(instance == NULL || !instance->used || !instance->current_dag->joined) {
       PRINTF("RPL: Unable to add/update hop-by-hop extension header: incorrect instance\n");
       uip_ext_len = last_uip_ext_len;
+num_pktdrop_rpl++;//ksh
       return 0; /* Drop */
     }
 
@@ -516,6 +528,7 @@ update_hbh_header(void)
             dao_output_target(parent, &UIP_IP_BUF->destipaddr, RPL_ZERO_LIFETIME);
           }
           /* Drop packet */
+num_pktdrop_rpl++;//ksh
           return 0;
         }
       } else {
@@ -642,18 +655,12 @@ rpl_update_header(void)
 
   if(default_instance->current_dag->rank == ROOT_RANK(default_instance)) {
     /* At the root, remove headers if any, and insert SRH or HBH
-    * (SRH is inserted only if the destination is in the DODAG) */
+     * (SRH is inserted only if the destination is in the DODAG) */
     rpl_remove_header();
-    if(rpl_get_dag(&UIP_IP_BUF->destipaddr) != NULL) {
-      /* dest is in a DODAG; the packet is going down. */
-      if(RPL_IS_NON_STORING(default_instance)) {
-        return insert_srh_header();
-      } else {
-        return insert_hbh_header(default_instance);
-      }
+    if(RPL_IS_NON_STORING(default_instance)) {
+      return insert_srh_header();
     } else {
-      /* dest is outside of DODAGs; no ext header is needed. */
-      return 1;
+      return insert_hbh_header(default_instance);
     }
   } else {
     if(uip_ds6_is_my_addr(&UIP_IP_BUF->srcipaddr)

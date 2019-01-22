@@ -50,7 +50,9 @@
 #include "net/rpl/rpl-ns.h"
 #include "net/ipv6/multicast/uip-mcast6.h"
 
+
 #define DEBUG DEBUG_NONE
+//#define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
 #include <limits.h>
@@ -107,6 +109,87 @@ rpl_set_mode(enum rpl_mode m)
 
   return oldmode;
 }
+
+/*---------------------------------------------------------------------------*/ //ksh.. FIXED_RPL_TOPOLOGY //2017 SNU openmote-cc2538 testbed
+#if FIXED_RPL_TOPOLOGY
+uint8_t get_fixed_rpl_parent_id(void){   // does not allow other nodes to be set as its parent.
+  uint8_t myid = linkaddr_node_addr.u8[LINKADDR_SIZE-1];
+//  printf("match test : myid: %u\n", myid);
+  switch (myid){
+
+/*
+    case 85: return 1; break;
+    case 153: return 85; break;
+    case 157: return 153; break;
+    case 214: return 157; break;
+    default : return 1; break;
+*/
+
+
+
+
+
+
+    case 4: return 1; break;
+    case 8: return 1; break;
+
+    case 16: return 8; break;
+    case 81: return 16; break;
+    case 102: return 81; break;
+    case 117: return 102; break;
+
+    case 64: return 16; break;
+    case 100: return 81; break;
+    case 113: return 102; break;
+    case 125: return 117; break;
+
+    case 85: return 4; break;
+    case 153: return 85; break;
+    case 157: return 153; break;
+    case 214: return 157; break;
+
+    case 145: return 85; break;
+    case 130: return 85; break;
+    case 198: return 157; break;
+    case 203: return 214; break;
+
+    default : return 1; break;
+
+
+
+
+//topology2
+/*
+    case 4: return 1; break;
+    case 8: return 1; break;
+
+    case 16: return 8; break;
+    case 81: return 16; break;
+    case 102: return 81; break;
+    case 117: return 102; break;
+
+    case 64: return 16; break;
+    case 100: return 81; break;
+    case 113: return 102; break;
+    case 125: return 117; break;
+
+    case 85: return 4; break;
+    case 153: return 85; break;
+    case 157: return 153; break;
+    case 214: return 157; break;
+
+    case 145: return 85; break;
+    case 130: return 85; break;
+    case 198: return 157; break;
+    case 203: return 214; break;
+
+    default : return 1; break;
+*/
+
+
+  }
+}
+#endif
 /*---------------------------------------------------------------------------*/
 void
 rpl_purge_routes(void)
@@ -281,11 +364,11 @@ rpl_ipv6_neighbor_callback(uip_ds6_nbr_t *nbr)
 
   PRINTF("RPL: Neighbor state changed for ");
   PRINT6ADDR(&nbr->ipaddr);
-#if UIP_ND6_SEND_NS || UIP_ND6_SEND_RA
+#if UIP_ND6_SEND_NA || UIP_ND6_SEND_RA
   PRINTF(", nscount=%u, state=%u\n", nbr->nscount, nbr->state);
-#else /* UIP_ND6_SEND_NS || UIP_ND6_SEND_RA */
+#else /* UIP_ND6_SEND_NA || UIP_ND6_SEND_RA */
   PRINTF(", state=%u\n", nbr->state);
-#endif /* UIP_ND6_SEND_NS || UIP_ND6_SEND_RA */
+#endif /* UIP_ND6_SEND_NA || UIP_ND6_SEND_RA */
   for(instance = &instance_table[0], end = instance + RPL_MAX_INSTANCES; instance < end; ++instance) {
     if(instance->used == 1 ) {
       p = rpl_find_parent_any_dag(instance, &nbr->ipaddr);
@@ -330,6 +413,15 @@ rpl_purge_dags(void)
 void
 rpl_init(void)
 {
+  //ksh..
+  num_dio=0;
+  num_dis=0;
+  num_dao=0;
+  num_dao_ack=0;
+  num_parent_switch=0;
+  num_pktdrop_rpl=0;
+
+
   uip_ipaddr_t rplmaddr;
   PRINTF("RPL started\n");
   default_instance = NULL;

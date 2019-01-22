@@ -54,18 +54,34 @@
 #include "net/mac/tsch/tsch-schedule.h"
 #include "net/mac/tsch/tsch-slot-operation.h"
 #include "net/mac/tsch/tsch-log.h"
+
 #include <string.h>
 
+
+
+
+
+/*
 #if TSCH_LOG_LEVEL >= 1
 #define DEBUG DEBUG_PRINT
-#else /* TSCH_LOG_LEVEL */
+#else // TSCH_LOG_LEVEL 
 #define DEBUG DEBUG_NONE
-#endif /* TSCH_LOG_LEVEL */
+#endif // TSCH_LOG_LEVEL 
 #include "net/net-debug.h"
+*/
+
+//#define DEBUG DEBUG_PRINT
+#define DEBUG DEBUG_NONE
+#include "net/net-debug.h"
+
 
 /* Check if TSCH_QUEUE_NUM_PER_NEIGHBOR is power of two */
 #if (TSCH_QUEUE_NUM_PER_NEIGHBOR & (TSCH_QUEUE_NUM_PER_NEIGHBOR - 1)) != 0
 #error TSCH_QUEUE_NUM_PER_NEIGHBOR must be power of two
+#endif
+
+#ifdef ALICE_CALLBACK_PACKET_SELECTION //ksh. alice packet selection
+int ALICE_CALLBACK_PACKET_SELECTION(uint16_t* ts, uint16_t* choff, const linkaddr_t rx_lladdr);
 #endif
 
 /* We have as many packets are there are queuebuf in the system */
@@ -85,7 +101,7 @@ tsch_queue_add_nbr(const linkaddr_t *addr)
   struct tsch_neighbor *n = NULL;
   /* If we have an entry for this neighbor already, we simply update it */
   n = tsch_queue_get_nbr(addr);
-  if(n == NULL) {
+  if(n == NULL) { 
     if(tsch_get_lock()) {
       /* Allocate a neighbor */
       n = memb_alloc(&neighbor_memb);
@@ -163,13 +179,6 @@ tsch_queue_update_time_source(const linkaddr_t *new_addr)
         /* Update time source */
         if(new_time_src != NULL) {
           new_time_src->is_time_source = 1;
-          /* (Re)set keep-alive timeout */
-          tsch_set_ka_timeout(TSCH_KEEPALIVE_TIMEOUT);
-          /* Start sending keepalives */
-          tsch_schedule_keepalive();
-        } else {
-          /* Stop sending keepalives */
-          tsch_set_ka_timeout(0);
         }
 
         if(old_time_src != NULL) {
@@ -202,7 +211,6 @@ tsch_queue_flush_nbr_queue(struct tsch_neighbor *n)
       /* Free packet queuebuf */
       tsch_queue_free_packet(p);
     }
-    PRINTF("TSCH-queue: packet is deleted packet=%p\n", p);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -237,9 +245,9 @@ tsch_queue_add_packet(const linkaddr_t *addr, mac_callback_t sent, void *ptr)
   if(!tsch_is_locked()) {
     n = tsch_queue_add_nbr(addr);
     if(n != NULL) {
-      put_index = ringbufindex_peek_put(&n->tx_ringbuf);
+      put_index = ringbufindex_peek_put(&n->tx_ringbuf);  
       if(put_index != -1) {
-        p = memb_alloc(&packet_memb);
+        p = memb_alloc(&packet_memb); 
         if(p != NULL) {
           /* Enqueue packet */
 #ifdef TSCH_CALLBACK_PACKET_READY
@@ -254,16 +262,18 @@ tsch_queue_add_packet(const linkaddr_t *addr, mac_callback_t sent, void *ptr)
             /* Add to ringbuf (actual add committed through atomic operation) */
             n->tx_array[put_index] = p;
             ringbufindex_put(&n->tx_ringbuf);
-            PRINTF("TSCH-queue: packet is added put_index=%u, packet=%p\n",
-                   put_index, p);
             return p;
           } else {
             memb_free(&packet_memb, p);
           }
-        }
-      }
-    }
-  }
+        } // p !=null
+      } // put_index != -1
+      tsch_queue_overflow++; //ksh.. //packet buffer is full. queue overflow.
+
+    } // n != null // n=tsch_queue_add_nbr
+  } //tsch_is_locked
+
+  num_pktdrop_queue++;
   PRINTF("TSCH-queue:! add packet failed: %u %p %d %p %p\n", tsch_is_locked(), n, put_index, p, p ? p->qb : NULL);
   return 0;
 }
@@ -291,7 +301,6 @@ tsch_queue_remove_packet_from_queue(struct tsch_neighbor *n)
       /* Get and remove packet from ringbuf (remove committed through an atomic operation */
       int16_t get_index = ringbufindex_get(&n->tx_ringbuf);
       if(get_index != -1) {
-        PRINTF("TSCH-queue: packet is removed, get_index=%u\n", get_index);
         return n->tx_array[get_index];
       } else {
         return NULL;
@@ -368,15 +377,61 @@ tsch_queue_get_packet_for_nbr(const struct tsch_neighbor *n, struct tsch_link *l
           !(is_shared_link && !tsch_queue_backoff_expired(n))) {    /* If this is a shared link,
                                                                     make sure the backoff has expired */
 #if TSCH_WITH_LINK_SELECTOR
+//-------------------------------------------------------------------------------------------- 
+//ksh. select packet by checking sfid, time_offset and channel_offset
         int packet_attr_slotframe = queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_SLOTFRAME);
         int packet_attr_timeslot = queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_TIMESLOT);
-        if(packet_attr_slotframe != 0xffff && packet_attr_slotframe != link->slotframe_handle) {
+        int packet_attr_channel_offset = queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_CHANNEL_OFFSET);
+//ksh.............................
+
+#ifdef ALICE_CALLBACK_PACKET_SELECTION
+        if(packet_attr_slotframe == ALICE_UNICAST_SF_ID) {
+          linkaddr_t rx_lladdr;
+          linkaddr_copy(&rx_lladdr, queuebuf_addr(n->tx_array[get_index]->qb, PACKETBUF_ADDR_RECEIVER));
+           uint16_t packet_ts=-1;
+           uint16_t packet_choff=-1;
+
+           // this function calculates timeoffset and channeloffset on the basis of the link-level packet destiation (rx_lladdr) and the current ASFN.
+           int r=ALICE_CALLBACK_PACKET_SELECTION(&packet_ts, &packet_choff, rx_lladdr); //Decides packet_ts and packet_choff, checks rpl neighbor relations.
+           if(r==0){ //no unicast link
+			tsch_queue_free_packet(n->tx_array[get_index]);
+		return NULL;
+           }else{ // has unicast link
+ 		   if(packet_attr_slotframe != 0xffff && link->slotframe_handle!= ALICE_UNICAST_SF_ID) {
+	             return NULL;
+	           }
+	           if(packet_attr_timeslot != 0xffff && link->timeslot!= packet_ts) { //alice link selector calculated packet_ts at the current asfn.
+	             return NULL;
+	           }
+	           if(link->channel_offset != packet_choff) { //alice link selector calculated packet_choff at the current asfn.
+	             return NULL; 
+	           }
+	 }
+ 	 return n->tx_array[get_index];
+        }else{//ksh.. This is EB or RPL slotframe
+           if(packet_attr_slotframe != 0xffff && link->slotframe_handle!= packet_attr_slotframe) {
+             return NULL;
+           }
+           if(packet_attr_timeslot != 0xffff && packet_attr_timeslot != link->timeslot) {
+             return NULL;
+           }
+           if(packet_attr_channel_offset != link->channel_offset) { 
+             return NULL; 
+           }
+	}
+#else //original source code
+        if(packet_attr_slotframe != 0xffff && link->slotframe_handle!= packet_attr_slotframe) {
           return NULL;
         }
         if(packet_attr_timeslot != 0xffff && packet_attr_timeslot != link->timeslot) {
           return NULL;
         }
-#endif
+        if(packet_attr_channel_offset != link->channel_offset) { 
+          return NULL; 
+        } 
+#endif //ALICE_CALLBACK_PACKET_SELECTION
+#endif //TSCH_WITH_LINK_SELECTOR
+
         return n->tx_array[get_index];
       }
     }
@@ -386,9 +441,9 @@ tsch_queue_get_packet_for_nbr(const struct tsch_neighbor *n, struct tsch_link *l
 /*---------------------------------------------------------------------------*/
 /* Returns the head packet from a neighbor queue (from neighbor address) */
 struct tsch_packet *
-tsch_queue_get_packet_for_dest_addr(const linkaddr_t *addr, struct tsch_link *link)
+tsch_queue_get_packet_for_dest_addr(const linkaddr_t *addr, struct tsch_link *link) 
 {
-  if(!tsch_is_locked()) {
+  if(!tsch_is_locked()) { 
     return tsch_queue_get_packet_for_nbr(tsch_queue_get_nbr(addr), link);
   }
   return NULL;
@@ -460,7 +515,7 @@ tsch_queue_update_all_backoff_windows(const linkaddr_t *dest_addr)
       if(n->backoff_window != 0 /* Is the queue in backoff state? */
          && ((n->tx_links_count == 0 && is_broadcast)
              || (n->tx_links_count > 0 && linkaddr_cmp(dest_addr, &n->addr)))) {
-        n->backoff_window--;
+        n->backoff_window--;	
       }
       n = list_item_next(n);
     }

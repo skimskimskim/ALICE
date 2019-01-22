@@ -41,6 +41,12 @@
 #define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
+//#define DEBUG DEBUG_PRINT
+//#include "net/net-debug.h"
+//#include "net/ip/uip-debug.h"
+
+
+
 #define RPL_DAG_GRACE_PERIOD (CLOCK_SECOND * 20 * 1)
 
 #if (UIP_CONF_MAX_ROUTES != 0)

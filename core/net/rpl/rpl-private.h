@@ -164,12 +164,12 @@
  * ETX path cost. Larger values may also be desirable, as discussed
  * in section 6.1 of RFC6719. */
 #if RPL_OF_OCP == RPL_OCP_MRHOF
-#define RPL_MIN_HOPRANKINC          128
+#define RPL_MIN_HOPRANKINC         128
 #else /* RPL_OF_OCP == RPL_OCP_MRHOF */
-#define RPL_MIN_HOPRANKINC          256
+#define RPL_MIN_HOPRANKINC         256
 #endif /* RPL_OF_OCP == RPL_OCP_MRHOF */
 #else /* RPL_CONF_MIN_HOPRANKINC */
-#define RPL_MIN_HOPRANKINC          RPL_CONF_MIN_HOPRANKINC
+#define RPL_MIN_HOPRANKINC        RPL_CONF_MIN_HOPRANKINC
 #endif /* RPL_CONF_MIN_HOPRANKINC */
 
 #ifndef RPL_CONF_MAX_RANKINC

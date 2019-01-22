@@ -119,12 +119,17 @@ struct tsch_slotframe {
   uint16_t handle;
   /* Number of timeslots in the slotframe.
    * Stored as struct asn_divisor_t because we often need ASN%size */
-  struct tsch_asn_divisor_t size;
+  struct asn_divisor_t size;
   /* List of links belonging to this slotframe */
   LIST_STRUCT(links_list);
 };
 
 /********** Functions *********/
+//ksh. timeslot and channel offset
+struct tsch_link *tsch_schedule_get_link_by_ts_choff(struct tsch_slotframe *slotframe, uint16_t timeslot, uint16_t channel_offset);
+//ksh. timeslot and channel offset
+int tsch_schedule_remove_link_by_ts_choff(struct tsch_slotframe *slotframe, uint16_t timeslot, uint16_t channel_offset);
+
 
 /* Module initialization, call only once at startup. Returns 1 is success, 0 if failure. */
 int tsch_schedule_init(void);
@@ -158,7 +163,7 @@ int tsch_schedule_remove_link(struct tsch_slotframe *slotframe, struct tsch_link
 int tsch_schedule_remove_link_by_timeslot(struct tsch_slotframe *slotframe, uint16_t timeslot);
 
 /* Returns the next active link after a given ASN, and a backup link (for the same ASN, with Rx flag) */
-struct tsch_link * tsch_schedule_get_next_active_link(struct tsch_asn_t *asn, uint16_t *time_offset,
+struct tsch_link * tsch_schedule_get_next_active_link(struct asn_t *asn, uint16_t *time_offset,
     struct tsch_link **backup_link);
 
 #endif /* __TSCH_SCHEDULE_H__ */

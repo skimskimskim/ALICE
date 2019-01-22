@@ -56,7 +56,7 @@ get_node_timeslot(const linkaddr_t *addr)
 }
 /*---------------------------------------------------------------------------*/
 static int
-select_packet(uint16_t *slotframe, uint16_t *timeslot)
+select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
 {
   /* Select EBs only */
   if(packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE) == FRAME802154_BEACONFRAME) {
@@ -65,6 +65,9 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot)
     }
     if(timeslot != NULL) {
       *timeslot = get_node_timeslot(&linkaddr_node_addr);
+    }
+    if(channel_offset != NULL) {
+      *channel_offset = slotframe_handle;
     }
     return 1;
   }

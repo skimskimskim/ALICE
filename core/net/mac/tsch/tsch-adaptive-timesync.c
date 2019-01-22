@@ -44,6 +44,10 @@
 #include "net/mac/tsch/tsch-log.h"
 #include <stdio.h>
 
+#define DEBUG DEBUG_NONE
+#include "net/net-debug.h"
+
+
 #if TSCH_ADAPTIVE_TIMESYNC
 
 /* Estimated drift of the time-source neighbor. Can be negative.

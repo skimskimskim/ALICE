@@ -49,6 +49,12 @@
 #include "net/ipv6/uip-ds6-nbr.h"
 #include "net/ipv6/uip-ds6-route.h"
 
+/*
+#define DEBUG DEBUG_PRINT
+#include "net/net-debug.h"
+#include "net/ip/uip-debug.h"
+*/
+
 #define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 

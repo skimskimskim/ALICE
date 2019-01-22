@@ -156,8 +156,39 @@ void TSCH_CALLBACK_JOINING_NETWORK();
 #ifdef TSCH_CALLBACK_LEAVING_NETWORK
 void TSCH_CALLBACK_LEAVING_NETWORK();
 #endif
+/***ksh.. real hash, Thomas Wang, 32-bit integer mix function ***/
+uint16_t real_hash(uint16_t value, uint16_t mod);
+
 
 /***** External Variables *****/
+
+//-------------------- /*ksh added*/ 
+extern int mac_tx_up_ok_counter;
+extern int mac_tx_up_error_counter;
+
+extern int mac_tx_up_collision_counter;
+extern int mac_tx_up_noack_counter;
+extern int mac_tx_up_deferred_counter;
+extern int mac_tx_up_err_counter;
+extern int mac_tx_up_err_fatal_counter;
+
+extern int tsch_queue_overflow;
+
+extern int mac_tx_down_ok_counter;
+extern int mac_tx_down_error_counter;
+
+extern int mac_tx_down_collision_counter;
+extern int mac_tx_down_noack_counter;
+extern int mac_tx_down_deferred_counter;
+extern int mac_tx_down_err_counter;
+extern int mac_tx_down_err_fatal_counter;
+
+
+extern uint16_t num_pktdrop_queue;
+extern uint16_t num_pktdrop_mac;
+
+
+//----------------------------------------
 
 /* Are we coordinator of the TSCH network? */
 extern int tsch_is_coordinator;

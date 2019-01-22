@@ -56,7 +56,9 @@
 #ifdef RPL_CONF_OF_OCP
 #define RPL_OF_OCP RPL_CONF_OF_OCP
 #else /* RPL_CONF_OF_OCP */
+
 #define RPL_OF_OCP RPL_OCP_MRHOF
+
 #endif /* RPL_CONF_OF_OCP */
 
 /*
@@ -67,7 +69,10 @@
 #ifdef RPL_CONF_SUPPORTED_OFS
 #define RPL_SUPPORTED_OFS RPL_CONF_SUPPORTED_OFS
 #else /* RPL_CONF_SUPPORTED_OFS */
+
 #define RPL_SUPPORTED_OFS {&rpl_mrhof}
+
+
 #endif /* RPL_CONF_SUPPORTED_OFS */
 
 /*
@@ -308,7 +313,7 @@
 #ifdef RPL_CONF_PROBING_SEND_FUNC
 #define RPL_PROBING_SEND_FUNC RPL_CONF_PROBING_SEND_FUNC
 #else
-#define RPL_PROBING_SEND_FUNC(instance, addr) dio_output((instance), (addr))
+#define RPL_PROBING_SEND_FUNC(instance, addr) dio_output((instance), (addr)) 
 #endif
 
 /*

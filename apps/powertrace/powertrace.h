@@ -42,6 +42,12 @@
 
 #include "sys/clock.h"
 
+extern int dc_radio;//ksh..
+extern int dc_tx;//ksh..
+extern int dc_listen;//ksh..
+
+
+
 void powertrace_start(clock_time_t perioc);
 void powertrace_stop(void);
 

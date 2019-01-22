@@ -77,6 +77,9 @@ orchestra_packet_sent(int mac_status)
     if(!linkaddr_cmp(&orchestra_parent_linkaddr, &linkaddr_null)
        && linkaddr_cmp(&orchestra_parent_linkaddr, packetbuf_addr(PACKETBUF_ADDR_RECEIVER))) {
       orchestra_parent_knows_us = 1;
+//      uint8_t i;
+//      i++;
+//      PRINTF("%u",i);
     }
   }
 }
@@ -112,11 +115,12 @@ orchestra_callback_packet_ready(void)
   /* By default, use any slotframe, any timeslot */
   uint16_t slotframe = 9;
   uint16_t timeslot = 0xffff;
+  uint16_t channel_offset = 0;
 
   /* Loop over all rules until finding one able to handle the packet */
   for(i = 0; i < NUM_RULES; i++) {
     if(all_rules[i]->select_packet != NULL) {
-      if(all_rules[i]->select_packet(&slotframe, &timeslot)) {
+      if(all_rules[i]->select_packet(&slotframe, &timeslot, &channel_offset)) {
         break;
       }
     }
@@ -125,6 +129,7 @@ orchestra_callback_packet_ready(void)
 #if TSCH_WITH_LINK_SELECTOR
   packetbuf_set_attr(PACKETBUF_ATTR_TSCH_SLOTFRAME, slotframe);
   packetbuf_set_attr(PACKETBUF_ATTR_TSCH_TIMESLOT, timeslot);
+  packetbuf_set_attr(PACKETBUF_ATTR_TSCH_CHANNEL_OFFSET, channel_offset);
 #endif
 }
 /*---------------------------------------------------------------------------*/

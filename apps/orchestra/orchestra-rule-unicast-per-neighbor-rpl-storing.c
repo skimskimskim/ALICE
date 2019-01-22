@@ -45,14 +45,6 @@
 #include "net/ipv6/uip-ds6-route.h"
 #include "net/packetbuf.h"
 #include "net/rpl/rpl-conf.h"
-#include "net/rpl/rpl-private.h"
-
-/*
- * The body of this rule should be compiled only when "nbr_routes" is available,
- * otherwise a link error causes build failure. "nbr_routes" is compiled if
- * UIP_CONF_MAX_ROUTES != 0. See uip-ds6-route.c.
- */
-#if UIP_CONF_MAX_ROUTES != 0
 
 #if ORCHESTRA_UNICAST_SENDER_BASED && ORCHESTRA_COLLISION_FREE_HASH
 #define UNICAST_SLOT_SHARED_FLAG    ((ORCHESTRA_UNICAST_PERIOD < (ORCHESTRA_MAX_HASH + 1)) ? LINK_OPTION_SHARED : 0)
@@ -69,7 +61,7 @@ static uint16_t
 get_node_timeslot(const linkaddr_t *addr)
 {
   if(addr != NULL && ORCHESTRA_UNICAST_PERIOD > 0) {
-    return ORCHESTRA_LINKADDR_HASH(addr) % ORCHESTRA_UNICAST_PERIOD;
+    return real_hash(ORCHESTRA_LINKADDR_HASH(addr), ORCHESTRA_UNICAST_PERIOD);//ksh..
   } else {
     return 0xffff;
   }
@@ -83,7 +75,7 @@ neighbor_has_uc_link(const linkaddr_t *linkaddr)
        && linkaddr_cmp(&orchestra_parent_linkaddr, linkaddr)) {
       return 1;
     }
-    if(nbr_table_get_from_lladdr(nbr_routes, (linkaddr_t *)linkaddr) != NULL) {
+    if(nbr_table_get_from_lladdr(nbr_routes, (linkaddr_t *)linkaddr) != NULL  && !linkaddr_cmp(&orchestra_parent_linkaddr, linkaddr)) {
       return 1;
     }
   }
@@ -165,17 +157,19 @@ child_removed(const linkaddr_t *linkaddr)
 }
 /*---------------------------------------------------------------------------*/
 static int
-select_packet(uint16_t *slotframe, uint16_t *timeslot)
+select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
 {
   /* Select data packets we have a unicast link to */
   const linkaddr_t *dest = packetbuf_addr(PACKETBUF_ADDR_RECEIVER);
-  if(packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE) == FRAME802154_DATAFRAME
-     && neighbor_has_uc_link(dest)) {
+  if(packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE) == FRAME802154_DATAFRAME && neighbor_has_uc_link(dest)) {
     if(slotframe != NULL) {
       *slotframe = slotframe_handle;
     }
     if(timeslot != NULL) {
       *timeslot = ORCHESTRA_UNICAST_SENDER_BASED ? get_node_timeslot(&linkaddr_node_addr) : get_node_timeslot(dest);
+    }
+    if(channel_offset != NULL) {
+      *channel_offset = slotframe_handle;
     }
     return 1;
   }
@@ -193,6 +187,7 @@ new_time_source(const struct tsch_neighbor *old, const struct tsch_neighbor *new
     } else {
       linkaddr_copy(&orchestra_parent_linkaddr, &linkaddr_null);
     }
+
     remove_uc_link(old_addr);
     add_uc_link(new_addr);
   }
@@ -202,14 +197,28 @@ static void
 init(uint16_t sf_handle)
 {
   slotframe_handle = sf_handle;
-  channel_offset = sf_handle;
+  channel_offset =  sf_handle;
+
   /* Slotframe for unicast transmissions */
   sf_unicast = tsch_schedule_add_slotframe(slotframe_handle, ORCHESTRA_UNICAST_PERIOD);
   uint16_t timeslot = get_node_timeslot(&linkaddr_node_addr);
+
+
+if (ORCHESTRA_UNICAST_SENDER_BASED==1){
+  printf("Orchestra: Sender-based\n");
+}else{
+  printf("Orchestra: Receiver-based\n");
+}
+
+
+
   tsch_schedule_add_link(sf_unicast,
             ORCHESTRA_UNICAST_SENDER_BASED ? LINK_OPTION_TX | UNICAST_SLOT_SHARED_FLAG: LINK_OPTION_RX,
             LINK_TYPE_NORMAL, &tsch_broadcast_address,
             timeslot, channel_offset);
+
+
+
 }
 /*---------------------------------------------------------------------------*/
 struct orchestra_rule unicast_per_neighbor_rpl_storing = {
@@ -219,5 +228,3 @@ struct orchestra_rule unicast_per_neighbor_rpl_storing = {
   child_added,
   child_removed,
 };
-
-#endif /* UIP_MAX_ROUTES */

@@ -45,6 +45,7 @@
 #include "net/ipv6/uip-ds6.h"
 #include "sys/ctimer.h"
 
+
 /*---------------------------------------------------------------------------*/
 typedef uint16_t rpl_rank_t;
 typedef uint16_t rpl_ocp_t;
@@ -85,6 +86,15 @@ typedef uint16_t rpl_ocp_t;
 /* IANA Objective Code Point as defined in RFC6550 */
 #define RPL_OCP_OF0     0
 #define RPL_OCP_MRHOF   1
+
+//ksh..
+uint16_t num_dio;
+uint16_t num_dis;
+uint16_t num_dao;
+uint16_t num_dao_ack;
+uint16_t num_parent_switch; 
+
+uint16_t num_pktdrop_rpl;
 
 struct rpl_metric_object_energy {
   uint8_t flags;
@@ -293,6 +303,11 @@ uip_ds6_nbr_t *rpl_get_nbr(rpl_parent_t *parent);
 void rpl_print_neighbor_list(void);
 int rpl_process_srh_header(void);
 int rpl_srh_get_next_hop(uip_ipaddr_t *ipaddr);
+
+
+#if FIXED_RPL_TOPOLOGY //ksh.. //2017 SNU opemote-cc2538 testbed
+uint8_t get_fixed_rpl_parent_id(void); 
+#endif
 
 /* Per-parent RPL information */
 NBR_TABLE_DECLARE(rpl_parents);

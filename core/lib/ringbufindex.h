@@ -48,72 +48,25 @@ struct ringbufindex {
   uint8_t put_ptr, get_ptr;
 };
 
-/**
- * \brief Initialize a ring buffer. The size must be a power of two
- * \param r Pointer to ringbufindex
- * \param size Size of ring buffer
- */
+/* Initialize a ring buffer. The size must be a power of two */
 void ringbufindex_init(struct ringbufindex *r, uint8_t size);
-
-/**
- * \brief Put one element to the ring buffer
- * \param r Pointer to ringbufindex
- * \retval 0 Failure; the ring buffer is full
- * \retval 1 Success; an element is added
- */
+/* Put one element to the ring buffer */
 int ringbufindex_put(struct ringbufindex *r);
-
-/**
- * \brief Check if there is space to put an element.
- * \param r Pinter to ringbufindex
- * \retval >= 0 The index where the next element is to be added.
- * \retval -1 Failure; the ring buffer is full
- */
+/* Check if there is space to put an element.
+ * Return the index where the next element is to be added */
 int ringbufindex_peek_put(const struct ringbufindex *r);
-
-/**
- * \brief Remove the first element and return its index
- * \param r Pinter to ringbufindex
- * \retval >= 0 The index of the first element
- * \retval -1 No element in the ring buffer
- */
+/* Remove the first element and return its index */
 int ringbufindex_get(struct ringbufindex *r);
-
-/**
- * \brief Return the index of the first element which will be removed if calling
- *        ringbufindex_get.
- * \param r Pinter to ringbufindex
- * \retval >= 0 The index of the first element
- * \retval -1 No element in the ring buffer
- */
+/* Return the index of the first element
+ * (which will be removed if calling ringbufindex_peek) */
 int ringbufindex_peek_get(const struct ringbufindex *r);
-
-/**
- * \brief Return the ring buffer size
- * \param r Pinter to ringbufindex
- * \return The size of the ring buffer
- */
+/* Return the ring buffer size */
 int ringbufindex_size(const struct ringbufindex *r);
-
-/**
- * \brief Return the number of elements currently in the ring buffer.
- * \param r Pinter to ringbufindex
- * \return The number of elements in the ring buffer
- */
+/* Return the number of elements currently in the ring buffer */
 int ringbufindex_elements(const struct ringbufindex *r);
-
-/**
- * \brief Is the ring buffer full?
- * \retval 0 Not full
- * \retval 1 Full
- */
+/* Is the ring buffer full? */
 int ringbufindex_full(const struct ringbufindex *r);
-
-/**
- * \brief Is the ring buffer empty?
- * \retval 0 Not empty
- * \retval 1 Empty
- */
+/* Is the ring buffer empty? */
 int ringbufindex_empty(const struct ringbufindex *r);
 
 #endif /* __RINGBUFINDEX_H__ */

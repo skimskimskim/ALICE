@@ -53,6 +53,10 @@
 #ifndef QUEUEBUF_H_
 #define QUEUEBUF_H_
 
+
+
+
+
 #include "net/packetbuf.h"
 
 /* QUEUEBUF_NUM is the total number of queuebuf */
@@ -89,6 +93,8 @@ struct queuebuf;
 
 void queuebuf_init(void);
 
+
+
 #if QUEUEBUF_DEBUG
 struct queuebuf *queuebuf_new_from_packetbuf_debug(const char *file, int line);
 #define queuebuf_new_from_packetbuf() queuebuf_new_from_packetbuf_debug(__FILE__, __LINE__)
@@ -106,6 +112,7 @@ int queuebuf_datalen(struct queuebuf *b);
 
 linkaddr_t *queuebuf_addr(struct queuebuf *b, uint8_t type);
 packetbuf_attr_t queuebuf_attr(struct queuebuf *b, uint8_t type);
+packetbuf_attr_t queuebuf_set_attr(struct queuebuf *b, uint8_t type, uint16_t value); //ksh defined.
 
 void queuebuf_debug_print(void);
 

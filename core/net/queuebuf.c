@@ -44,6 +44,7 @@
 
 #include "contiki-net.h"
 
+
 #if WITH_SWAP
 #include "cfs/cfs.h"
 #endif
@@ -70,7 +71,11 @@ struct queuebuf {
 #endif
 };
 
+
+
 /* The actual queuebuf data */
+
+
 struct queuebuf_data {
   uint8_t data[PACKETBUF_SIZE];
   uint16_t len;
@@ -453,6 +458,14 @@ packetbuf_attr_t
 queuebuf_attr(struct queuebuf *b, uint8_t type)
 {
   struct queuebuf_data *buframptr = queuebuf_load_to_ram(b);
+  return buframptr->attrs[type].val;
+}
+/*---------------------------------------------------------------------------*/
+packetbuf_attr_t // ksh defined.
+queuebuf_set_attr(struct queuebuf *b, uint8_t type, uint16_t value)
+{
+  struct queuebuf_data *buframptr = queuebuf_load_to_ram(b);
+  buframptr->attrs[type].val = value;
   return buframptr->attrs[type].val;
 }
 /*---------------------------------------------------------------------------*/

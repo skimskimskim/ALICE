@@ -58,13 +58,21 @@
 #include <limits.h>
 #include <string.h>
 
+
 #define DEBUG DEBUG_NONE
+//#define DEBUG DEBUG_PRINT
+#include "net/net-debug.h"
 #include "net/ip/uip-debug.h"
+
 
 /* A configurable function called after every RPL parent switch */
 #ifdef RPL_CALLBACK_PARENT_SWITCH
 void RPL_CALLBACK_PARENT_SWITCH(rpl_parent_t *old, rpl_parent_t *new);
 #endif /* RPL_CALLBACK_PARENT_SWITCH */
+
+
+//.................................................................................................
+
 
 /*---------------------------------------------------------------------------*/
 extern rpl_of_t rpl_of0, rpl_mrhof;
@@ -177,7 +185,9 @@ rpl_rank_via_parent(rpl_parent_t *p)
   if(p != NULL && p->dag != NULL) {
     rpl_instance_t *instance = p->dag->instance;
     if(instance != NULL && instance->of != NULL && instance->of->rank_via_parent != NULL) {
-      return instance->of->rank_via_parent(p);
+
+       uint16_t value = instance->of->rank_via_parent(p);
+      return value;
     }
   }
   return INFINITE_RANK;
@@ -215,13 +225,13 @@ rpl_parent_is_reachable(rpl_parent_t *p) {
   if(p == NULL || p->dag == NULL || p->dag->instance == NULL || p->dag->instance->of == NULL) {
     return 0;
   } else {
-#if UIP_ND6_SEND_NS
+#ifndef UIP_CONF_ND6_SEND_NA
     uip_ds6_nbr_t *nbr = rpl_get_nbr(p);
     /* Exclude links to a neighbor that is not reachable at a NUD level */
     if(nbr == NULL || nbr->state != NBR_REACHABLE) {
       return 0;
     }
-#endif /* UIP_ND6_SEND_NS */
+#endif /* UIP_CONF_ND6_SEND_NA */
     /* If we don't have fresh link information, assume the parent is reachable. */
     return !rpl_parent_is_fresh(p) || p->dag->instance->of->parent_has_usable_link(p);
   }
@@ -246,6 +256,7 @@ rpl_set_preferred_parent(rpl_dag_t *dag, rpl_parent_t *p)
     PRINTF("\n");
 
 #ifdef RPL_CALLBACK_PARENT_SWITCH
+    num_parent_switch++;
     RPL_CALLBACK_PARENT_SWITCH(dag->preferred_parent, p);
 #endif /* RPL_CALLBACK_PARENT_SWITCH */
 
@@ -778,6 +789,8 @@ rpl_select_dag(rpl_instance_t *instance, rpl_parent_t *p)
   }
 
   if(best_dag == NULL) {
+
+
     /* No parent found: the calling function handle this problem. */
     return NULL;
   }
@@ -806,6 +819,7 @@ rpl_select_dag(rpl_instance_t *instance, rpl_parent_t *p)
   instance->of->update_metric_container(instance);
   /* Update the DAG rank. */
   best_dag->rank = rpl_rank_via_parent(best_dag->preferred_parent);
+
   if(last_parent == NULL || best_dag->rank < best_dag->min_rank) {
     /* This is a slight departure from RFC6550: if we had no preferred parent before,
      * reset min_rank. This helps recovering from temporary bad link conditions. */
@@ -819,6 +833,7 @@ rpl_select_dag(rpl_instance_t *instance, rpl_parent_t *p)
       /* Send a No-Path DAO to the removed preferred parent. */
       dao_output(last_parent, RPL_ZERO_LIFETIME);
     }
+
     return NULL;
   }
 
@@ -846,6 +861,9 @@ rpl_select_dag(rpl_instance_t *instance, rpl_parent_t *p)
     PRINTF("RPL: Preferred parent update, rank changed from %u to %u\n",
   	(unsigned)old_rank, best_dag->rank);
   }
+
+
+
   return best_dag;
 }
 /*---------------------------------------------------------------------------*/
@@ -877,7 +895,7 @@ best_parent(rpl_dag_t *dag, int fresh_only)
       continue;
     }
 
-#if UIP_ND6_SEND_NS
+#ifndef UIP_CONF_ND6_SEND_NA
     {
     uip_ds6_nbr_t *nbr = rpl_get_nbr(p);
     /* Exclude links to a neighbor that is not reachable at a NUD level */
@@ -885,7 +903,7 @@ best_parent(rpl_dag_t *dag, int fresh_only)
       continue;
     }
     }
-#endif /* UIP_ND6_SEND_NS */
+#endif /* UIP_CONF_ND6_SEND_NA */
 
     /* Now we have an acceptable parent, check if it is the new best */
     best = of->best_parent(best, p);
@@ -1081,6 +1099,7 @@ rpl_join_instance(uip_ipaddr_t *from, rpl_dio_t *dio)
   rpl_dag_t *dag;
   rpl_parent_t *p;
   rpl_of_t *of;
+
 
   if((!RPL_WITH_NON_STORING && dio->mop == RPL_MOP_NON_STORING)
       || (!RPL_WITH_STORING && (dio->mop == RPL_MOP_STORING_NO_MULTICAST
@@ -1440,6 +1459,32 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
   rpl_dag_t *dag, *previous_dag;
   rpl_parent_t *p;
 
+
+
+
+
+//--------------------------------------------------ksh... for the fixed RPL topology construction //2017 SNU openmote-cc2538 testbed
+#if FIXED_RPL_TOPOLOGY // does not allow other nodes to be set as its parent.
+//  uint8_t pid = uip_ds6_nbr_lladdr_from_ipaddr->u8[LINKADDR_SIZE-1];
+  if(from!=NULL){
+  uint8_t pid = from->u8[sizeof(uip_ipaddr_t)-1];
+  if( pid!=get_fixed_rpl_parent_id() ){   
+    PRINTF("RPL2:! FIXED RPL TOPOLOGY : Not allowed parent ID (received pid=%u, allowed pid=%u)\n", pid, get_fixed_rpl_parent_id());
+    return;
+  }else{
+    PRINTF("RPL2: FIXED RPL TOPOLOGY : Allowed parent ID (received pid=%u, allowed pid=%u)\n", pid, get_fixed_rpl_parent_id());
+  }
+  }
+#endif
+//---------------------------------------------------------------------------
+
+
+
+
+
+
+
+
 #if RPL_WITH_MULTICAST
   /* If the root is advertising MOP 2 but we support MOP 3 we can still join
    * In that scenario, we suppress DAOs for multicast targets */
@@ -1545,7 +1590,7 @@ rpl_process_dio(uip_ipaddr_t *from, rpl_dio_t *dio)
   }
 
   /* The DIO comes from a valid DAG, we can refresh its lifetime */
-  dag->lifetime = (1UL << (instance->dio_intmin + instance->dio_intdoubl)) * RPL_DAG_LIFETIME / 1000;
+  dag->lifetime = (1UL << (instance->dio_intmin + instance->dio_intdoubl)) / 1000;
   PRINTF("Set dag ");
   PRINT6ADDR(&dag->dag_id);
   PRINTF(" lifetime to %ld\n", dag->lifetime);

@@ -46,11 +46,11 @@
 #include "net/mac/tsch/tsch-log.h"
 #include "tsch-rpl.h"
 
-#if TSCH_LOG_LEVEL >= 1
-#define DEBUG DEBUG_PRINT
-#else /* TSCH_LOG_LEVEL */
+//#if TSCH_LOG_LEVEL >= 1
+//#define DEBUG DEBUG_PRINT
+//#else
 #define DEBUG DEBUG_NONE
-#endif /* TSCH_LOG_LEVEL */
+//#endif
 #include "net/net-debug.h"
 
 /*---------------------------------------------------------------------------*/

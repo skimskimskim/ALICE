@@ -54,16 +54,23 @@
 #include "net/mac/tsch/tsch-packet.h"
 #include "net/mac/tsch/tsch-security.h"
 #include "net/mac/tsch/tsch-adaptive-timesync.h"
+
+#include "net/rpl/rpl.h"//ksh
+#include "net/rpl/rpl-private.h" //ksh
+
 #if CONTIKI_TARGET_COOJA || CONTIKI_TARGET_COOJA_IP64
 #include "lib/simEnvChange.h"
 #include "sys/cooja_mt.h"
 #endif /* CONTIKI_TARGET_COOJA || CONTIKI_TARGET_COOJA_IP64 */
-
+/*
 #if TSCH_LOG_LEVEL >= 1
 #define DEBUG DEBUG_PRINT
-#else /* TSCH_LOG_LEVEL */
+#else // TSCH_LOG_LEVEL 
 #define DEBUG DEBUG_NONE
-#endif /* TSCH_LOG_LEVEL */
+#endif // TSCH_LOG_LEVEL 
+*/
+#define DEBUG DEBUG_NONE
+//#define DEBUG DEBUG_PRINT
 #include "net/net-debug.h"
 
 /* TSCH debug macros, i.e. to set LEDs or GPIOs on various TSCH
@@ -117,6 +124,8 @@
 #define RTIMER_GUARD 2u
 #endif
 
+
+
 enum tsch_radio_state_on_cmd {
   TSCH_RADIO_CMD_ON_START_OF_TIMESLOT,
   TSCH_RADIO_CMD_ON_WITHIN_TIMESLOT,
@@ -139,7 +148,7 @@ struct ringbufindex input_ringbuf;
 struct input_packet input_array[TSCH_MAX_INCOMING_PACKETS];
 
 /* Last time we received Sync-IE (ACK or data packet from a time source) */
-static struct tsch_asn_t last_sync_asn;
+static struct asn_t last_sync_asn;
 
 /* A global lock for manipulating data structures safely from outside of interrupt */
 static volatile int tsch_locked = 0;
@@ -248,9 +257,9 @@ tsch_release_lock(void)
 
 /* Return channel from ASN and channel offset */
 uint8_t
-tsch_calculate_channel(struct tsch_asn_t *asn, uint8_t channel_offset)
+tsch_calculate_channel(struct asn_t *asn, uint8_t channel_offset)
 {
-  uint16_t index_of_0 = TSCH_ASN_MOD(*asn, tsch_hopping_sequence_length);
+  uint16_t index_of_0 = ASN_MOD(*asn, tsch_hopping_sequence_length);
   uint16_t index_of_offset = (index_of_0 + channel_offset) % tsch_hopping_sequence_length.val;
   return tsch_hopping_sequence[index_of_offset];
 }
@@ -331,18 +340,22 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
     /* is it for advertisement of EB? */
     if(link->link_type == LINK_TYPE_ADVERTISING || link->link_type == LINK_TYPE_ADVERTISING_ONLY) {
       /* fetch EB packets */
-      n = n_eb;
-      p = tsch_queue_get_packet_for_nbr(n, link);
+      n = n_eb;        
+      p = tsch_queue_get_packet_for_nbr(n, link); 
+      
     }
     if(link->link_type != LINK_TYPE_ADVERTISING_ONLY) {
       /* NORMAL link or no EB to send, pick a data packet */
       if(p == NULL) {
         /* Get neighbor queue associated to the link and get packet from it */
-        n = tsch_queue_get_nbr(&link->addr);
-        p = tsch_queue_get_packet_for_nbr(n, link);
+        n = tsch_queue_get_nbr(&link->addr); 
+
+        
+        p = tsch_queue_get_packet_for_nbr(n, link); 
         /* if it is a broadcast slot and there were no broadcast packets, pick any unicast packet */
+
         if(p == NULL && n == n_broadcast) {
-          p = tsch_queue_get_unicast_packet_for_any(&n, link);
+          p = tsch_queue_get_unicast_packet_for_any(&n, link); 
         }
       }
     }
@@ -354,6 +367,7 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
 
   return p;
 }
+
 /*---------------------------------------------------------------------------*/
 /* Post TX: Update neighbor state after a transmission */
 static int
@@ -381,6 +395,7 @@ update_neighbor_state(struct tsch_neighbor *n, struct tsch_packet *p,
     /* Failed transmission */
     if(p->transmissions >= TSCH_MAC_MAX_FRAME_RETRIES + 1) {
       /* Drop packet */
+	num_pktdrop_mac++;//
       tsch_queue_remove_packet_from_queue(n);
       in_queue = 0;
     }
@@ -530,7 +545,7 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
          * the original untouched. This is to allow for future retransmissions. */
         int with_encryption = queuebuf_attr(current_packet->qb, PACKETBUF_ATTR_SECURITY_LEVEL) & 0x4;
         packet_len += tsch_security_secure_frame(packet, with_encryption ? encrypted_packet : packet, current_packet->header_len,
-            packet_len - current_packet->header_len, &tsch_current_asn);
+            packet_len - current_packet->header_len, &current_asn);
         if(with_encryption) {
           packet = encrypted_packet;
         }
@@ -627,7 +642,7 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
 #if LLSEC802154_ENABLED
                 if(ack_len != 0) {
                   if(!tsch_security_parse_frame(ackbuf, ack_hdrlen, ack_len - ack_hdrlen - tsch_security_mic_len(&frame),
-                      &frame, &current_neighbor->addr, &tsch_current_asn)) {
+                      &frame, &current_neighbor->addr, &current_asn)) {
                     TSCH_LOG_ADD(tsch_log_message,
                         snprintf(log->message, sizeof(log->message),
                         "!failed to authenticate ACK"));
@@ -644,7 +659,7 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
               if(ack_len != 0) {
                 if(is_time_source) {
                   int32_t eack_time_correction = US_TO_RTIMERTICKS(ack_ies.ie_time_correction);
-                  int32_t since_last_timesync = TSCH_ASN_DIFF(tsch_current_asn, last_sync_asn);
+                  int32_t since_last_timesync = ASN_DIFF(current_asn, last_sync_asn);
                   if(eack_time_correction > SYNC_IE_BOUND) {
                     drift_correction = SYNC_IE_BOUND;
                   } else if(eack_time_correction < -SYNC_IE_BOUND) {
@@ -661,15 +676,16 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
                   is_drift_correction_used = 1;
                   tsch_timesync_update(current_neighbor, since_last_timesync, drift_correction);
                   /* Keep track of sync time */
-                  last_sync_asn = tsch_current_asn;
+                  last_sync_asn = current_asn;
                   tsch_schedule_keepalive();
                 }
                 mac_tx_status = MAC_TX_OK;
               } else {
                 mac_tx_status = MAC_TX_NOACK;
               }
-            } else {
+            } else { //is_broadcast == true
               mac_tx_status = MAC_TX_OK;
+
             }
           } else {
             mac_tx_status = MAC_TX_ERR;
@@ -681,6 +697,61 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
     tsch_radio_off(TSCH_RADIO_CMD_OFF_END_OF_TIMESLOT);
 
     current_packet->transmissions++;
+
+//----------------------------
+   if(current_link->slotframe_handle == ALICE_UNICAST_SF_ID) {
+     
+      int up1_down2=2; //default is downstream
+      rpl_instance_t *instance =rpl_get_default_instance();
+      if(instance==NULL || instance->current_dag==NULL || instance->current_dag->preferred_parent==NULL){
+         //do nothing
+      }else{
+	if(linkaddr_cmp(queuebuf_addr(current_packet->qb, PACKETBUF_ADDR_RECEIVER),rpl_get_parent_lladdr(instance->current_dag->preferred_parent))){
+            up1_down2=1;
+         }else{
+            up1_down2=2;   
+         }
+      }
+
+      if(up1_down2==1){ //upstream
+         if(mac_tx_status==MAC_TX_OK){
+            mac_tx_up_ok_counter++;
+         }else{
+            mac_tx_up_error_counter++;
+            if(mac_tx_status==MAC_TX_COLLISION){
+                mac_tx_up_collision_counter++;
+            }else if(mac_tx_status==MAC_TX_NOACK){
+                mac_tx_up_noack_counter++;
+            }else if(mac_tx_status==MAC_TX_DEFERRED){
+                mac_tx_up_deferred_counter++;
+            }else if(mac_tx_status==MAC_TX_ERR){
+                mac_tx_up_err_counter++;
+            }else if(mac_tx_status==MAC_TX_ERR_FATAL){
+                mac_tx_up_err_fatal_counter++;
+            }
+         }
+      }else{ //downstream
+         if(mac_tx_status==MAC_TX_OK){
+            mac_tx_down_ok_counter++;
+         }else{
+            mac_tx_down_error_counter++;
+            if(mac_tx_status==MAC_TX_COLLISION){
+                mac_tx_down_collision_counter++;
+            }else if(mac_tx_status==MAC_TX_NOACK){
+                mac_tx_down_noack_counter++;
+            }else if(mac_tx_status==MAC_TX_DEFERRED){
+                mac_tx_down_deferred_counter++;
+            }else if(mac_tx_status==MAC_TX_ERR){
+                mac_tx_down_err_counter++;
+            }else if(mac_tx_status==MAC_TX_ERR_FATAL){
+                mac_tx_down_err_fatal_counter++;
+            }
+         }
+      }
+   }
+//--------------------------------------------------------
+
+
     current_packet->ret = mac_tx_status;
 
     /* Post TX: Update neighbor state */
@@ -691,6 +762,7 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
       dequeued_array[dequeued_index] = current_packet;
       ringbufindex_put(&dequeued_ringbuf);
     }
+
 
     /* Log every tx attempt */
     TSCH_LOG_ADD(tsch_log_tx,
@@ -793,7 +865,7 @@ PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t))
         /* Read packet */
         current_input->len = NETSTACK_RADIO.read((void *)current_input->payload, TSCH_PACKET_MAX_LEN);
         NETSTACK_RADIO.get_value(RADIO_PARAM_LAST_RSSI, &radio_last_rssi);
-        current_input->rx_asn = tsch_current_asn;
+        current_input->rx_asn = current_asn;
         current_input->rssi = (signed)radio_last_rssi;
         current_input->channel = current_channel;
         header_len = frame802154_parse((uint8_t *)current_input->payload, current_input->len, &frame);
@@ -813,7 +885,7 @@ PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t))
         if(frame_valid) {
           if(tsch_security_parse_frame(
                current_input->payload, header_len, current_input->len - header_len - tsch_security_mic_len(&frame),
-               &frame, &source_address, &tsch_current_asn)) {
+               &frame, &source_address, &current_asn)) {
             current_input->len -= tsch_security_mic_len(&frame);
           } else {
             TSCH_LOG_ADD(tsch_log_message,
@@ -861,32 +933,30 @@ PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t))
               ack_len = tsch_packet_create_eack(ack_buf, sizeof(ack_buf),
                   &source_address, frame.seq, (int16_t)RTIMERTICKS_TO_US(estimated_drift), do_nack);
 
-              if(ack_len > 0) {
 #if LLSEC802154_ENABLED
-                if(tsch_is_pan_secured) {
-                  /* Secure ACK frame. There is only header and header IEs, therefore data len == 0. */
-                  ack_len += tsch_security_secure_frame(ack_buf, ack_buf, ack_len, 0, &tsch_current_asn);
-                }
+              if(tsch_is_pan_secured) {
+                /* Secure ACK frame. There is only header and header IEs, therefore data len == 0. */
+                ack_len += tsch_security_secure_frame(ack_buf, ack_buf, ack_len, 0, &current_asn);
+              }
 #endif /* LLSEC802154_ENABLED */
 
-                /* Copy to radio buffer */
-                NETSTACK_RADIO.prepare((const void *)ack_buf, ack_len);
+              /* Copy to radio buffer */
+              NETSTACK_RADIO.prepare((const void *)ack_buf, ack_len);
 
-                /* Wait for time to ACK and transmit ACK */
-                TSCH_SCHEDULE_AND_YIELD(pt, t, rx_start_time,
-                                        packet_duration + tsch_timing[tsch_ts_tx_ack_delay] - RADIO_DELAY_BEFORE_TX, "RxBeforeAck");
-                TSCH_DEBUG_RX_EVENT();
-                NETSTACK_RADIO.transmit(ack_len);
-                tsch_radio_off(TSCH_RADIO_CMD_OFF_WITHIN_TIMESLOT);
-              }
+              /* Wait for time to ACK and transmit ACK */
+              TSCH_SCHEDULE_AND_YIELD(pt, t, rx_start_time,
+                  packet_duration + tsch_timing[tsch_ts_tx_ack_delay] - RADIO_DELAY_BEFORE_TX, "RxBeforeAck");
+              TSCH_DEBUG_RX_EVENT();
+              NETSTACK_RADIO.transmit(ack_len);
+              tsch_radio_off(TSCH_RADIO_CMD_OFF_WITHIN_TIMESLOT);
             }
 
             /* If the sender is a time source, proceed to clock drift compensation */
             n = tsch_queue_get_nbr(&source_address);
             if(n != NULL && n->is_time_source) {
-              int32_t since_last_timesync = TSCH_ASN_DIFF(tsch_current_asn, last_sync_asn);
+              int32_t since_last_timesync = ASN_DIFF(current_asn, last_sync_asn);
               /* Keep track of last sync time */
-              last_sync_asn = tsch_current_asn;
+              last_sync_asn = current_asn;
               /* Save estimated drift */
               drift_correction = -estimated_drift;
               is_drift_correction_used = 1;
@@ -939,10 +1009,8 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
 {
   TSCH_DEBUG_INTERRUPT();
   PT_BEGIN(&slot_operation_pt);
-
   /* Loop over all active slots */
   while(tsch_is_associated) {
-
     if(current_link == NULL || tsch_lock_requested) { /* Skip slot operation if there is no link
                                                           or if there is a pending request for getting the lock */
       /* Issue a log whenever skipping a slot */
@@ -953,7 +1021,6 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
                             tsch_lock_requested,
                             current_link == NULL);
       );
-
     } else {
       int is_active_slot;
       TSCH_DEBUG_SLOT_START();
@@ -972,7 +1039,7 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
       is_active_slot = current_packet != NULL || (current_link->link_options & LINK_OPTION_RX);
       if(is_active_slot) {
         /* Hop channel */
-        current_channel = tsch_calculate_channel(&tsch_current_asn, current_link->channel_offset);
+        current_channel = tsch_calculate_channel(&current_asn, current_link->channel_offset);
         NETSTACK_RADIO.set_value(RADIO_PARAM_CHANNEL, current_channel);
         /* Turn the radio on already here if configured so; necessary for radios with slow startup */
         tsch_radio_on(TSCH_RADIO_CMD_ON_START_OF_TIMESLOT);
@@ -997,13 +1064,14 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
 
     /* End of slot operation, schedule next slot or resynchronize */
 
+
     /* Do we need to resynchronize? i.e., wait for EB again */
-    if(!tsch_is_coordinator && (TSCH_ASN_DIFF(tsch_current_asn, last_sync_asn) >
+    if(!tsch_is_coordinator && (ASN_DIFF(current_asn, last_sync_asn) >
         (100 * TSCH_CLOCK_TO_SLOTS(TSCH_DESYNC_THRESHOLD / 100, tsch_timing[tsch_ts_timeslot_length])))) {
       TSCH_LOG_ADD(tsch_log_message,
             snprintf(log->message, sizeof(log->message),
                 "! leaving the network, last sync %u",
-                          (unsigned)TSCH_ASN_DIFF(tsch_current_asn, last_sync_asn));
+                          (unsigned)ASN_DIFF(current_asn, last_sync_asn));
       );
       last_timesource_neighbor = NULL;
       tsch_disassociate();
@@ -1023,16 +1091,17 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
            * this Tx, Shared link. */
           tsch_queue_update_all_backoff_windows(&current_link->addr);
         }
-
+	
         /* Get next active link */
-        current_link = tsch_schedule_get_next_active_link(&tsch_current_asn, &timeslot_diff, &backup_link);
+        current_link = tsch_schedule_get_next_active_link(&current_asn, &timeslot_diff, &backup_link);
         if(current_link == NULL) {
           /* There is no next link. Fall back to default
            * behavior: wake up at the next slot. */
           timeslot_diff = 1;
         }
         /* Update ASN */
-        TSCH_ASN_INC(tsch_current_asn, timeslot_diff);
+        ASN_INC(current_asn, timeslot_diff);
+	
         /* Time to next wake up */
         time_to_next_active_slot = timeslot_diff * tsch_timing[tsch_ts_timeslot_length] + drift_correction;
         drift_correction = 0;
@@ -1043,8 +1112,8 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
         current_slot_start += tsch_timesync_adaptive_compensate(time_to_next_active_slot);
       } while(!tsch_schedule_slot_operation(t, prev_slot_start, time_to_next_active_slot, "main"));
     }
-
     tsch_in_slot_operation = 0;
+
     PT_YIELD(&slot_operation_pt);
   }
 
@@ -1063,14 +1132,14 @@ tsch_slot_operation_start(void)
   do {
     uint16_t timeslot_diff;
     /* Get next active link */
-    current_link = tsch_schedule_get_next_active_link(&tsch_current_asn, &timeslot_diff, &backup_link);
+    current_link = tsch_schedule_get_next_active_link(&current_asn, &timeslot_diff, &backup_link);
     if(current_link == NULL) {
       /* There is no next link. Fall back to default
        * behavior: wake up at the next slot. */
       timeslot_diff = 1;
     }
     /* Update ASN */
-    TSCH_ASN_INC(tsch_current_asn, timeslot_diff);
+    ASN_INC(current_asn, timeslot_diff);
     /* Time to next wake up */
     time_to_next_active_slot = timeslot_diff * tsch_timing[tsch_ts_timeslot_length];
     /* Update current slot start */
@@ -1082,11 +1151,11 @@ tsch_slot_operation_start(void)
 /* Start actual slot operation */
 void
 tsch_slot_operation_sync(rtimer_clock_t next_slot_start,
-    struct tsch_asn_t *next_slot_asn)
+    struct asn_t *next_slot_asn)
 {
   current_slot_start = next_slot_start;
-  tsch_current_asn = *next_slot_asn;
-  last_sync_asn = tsch_current_asn;
+  current_asn = *next_slot_asn;
+  last_sync_asn = current_asn;
   current_link = NULL;
 }
 /*---------------------------------------------------------------------------*/

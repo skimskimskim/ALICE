@@ -60,6 +60,8 @@
 #include <string.h>
 
 #define DEBUG DEBUG_NONE
+//#define DEBUG DEBUG_PRINT
+#include "net/net-debug.h" 
 
 #include "net/ip/uip-debug.h"
 
@@ -218,15 +220,16 @@ dis_input(void)
   for(instance = &instance_table[0], end = instance + RPL_MAX_INSTANCES;
       instance < end; ++instance) {
     if(instance->used == 1) {
-      if(uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
 #if RPL_LEAF_ONLY
-        PRINTF("RPL: LEAF ONLY Multicast DIS will NOT reset DIO timer\n");
+      if(!uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
+	PRINTF("RPL: LEAF ONLY Multicast DIS will NOT reset DIO timer\n");
 #else /* !RPL_LEAF_ONLY */
+      if(uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
         PRINTF("RPL: Multicast DIS => reset DIO timer\n");
         rpl_reset_dio_timer(instance);
-#endif /* !RPL_LEAF_ONLY */
       } else {
-        /* Check if this neighbor should be added according to the policy. */
+#endif /* !RPL_LEAF_ONLY */
+	/* Check if this neighbor should be added according to the policy. */
         if(rpl_icmp6_update_nbr_table(&UIP_IP_BUF->srcipaddr,
                                       NBR_TABLE_REASON_RPL_DIS, NULL) == NULL) {
           PRINTF("RPL: Out of Memory, not sending unicast DIO, DIS from ");
@@ -272,7 +275,8 @@ dis_output(uip_ipaddr_t *addr)
   PRINT6ADDR(addr);
   PRINTF("\n");
 
-  uip_icmp6_send(addr, ICMP6_RPL, RPL_CODE_DIS, 2);
+  
+  uip_icmp6_send(addr, ICMP6_RPL, RPL_CODE_DIS, 2); num_dis++;
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -593,6 +597,7 @@ dio_output(rpl_instance_t *instance, uip_ipaddr_t *uc_addr)
            dag->prefix_info.length);
   }
 
+
 #if RPL_LEAF_ONLY
 #if (DEBUG) & DEBUG_PRINT
   if(uc_addr == NULL) {
@@ -603,20 +608,20 @@ dio_output(rpl_instance_t *instance, uip_ipaddr_t *uc_addr)
       (unsigned)dag->rank);
   PRINT6ADDR(uc_addr);
   PRINTF("\n");
-  uip_icmp6_send(uc_addr, ICMP6_RPL, RPL_CODE_DIO, pos);
+  uip_icmp6_send(uc_addr, ICMP6_RPL, RPL_CODE_DIO, pos);num_dio++;
 #else /* RPL_LEAF_ONLY */
   /* Unicast requests get unicast replies! */
   if(uc_addr == NULL) {
     PRINTF("RPL: Sending a multicast-DIO with rank %u\n",
         (unsigned)instance->current_dag->rank);
     uip_create_linklocal_rplnodes_mcast(&addr);
-    uip_icmp6_send(&addr, ICMP6_RPL, RPL_CODE_DIO, pos);
+    uip_icmp6_send(&addr, ICMP6_RPL, RPL_CODE_DIO, pos);num_dio++;
   } else {
     PRINTF("RPL: Sending unicast-DIO with rank %u to ",
         (unsigned)instance->current_dag->rank);
     PRINT6ADDR(uc_addr);
     PRINTF("\n");
-    uip_icmp6_send(uc_addr, ICMP6_RPL, RPL_CODE_DIO, pos);
+    uip_icmp6_send(uc_addr, ICMP6_RPL, RPL_CODE_DIO, pos);num_dio++;
   }
 #endif /* RPL_LEAF_ONLY */
 }
@@ -788,7 +793,7 @@ dao_input_storing(void)
         buffer = UIP_ICMP_PAYLOAD;
         buffer[3] = out_seq; /* add an outgoing seq no before fwd */
         uip_icmp6_send(rpl_get_parent_ipaddr(dag->preferred_parent),
-                       ICMP6_RPL, RPL_CODE_DAO, buffer_length);
+                       ICMP6_RPL, RPL_CODE_DAO, buffer_length); num_dao++;
       }
     }
     /* independent if we remove or not - ACK the request */
@@ -876,7 +881,7 @@ fwd_dao:
       buffer = UIP_ICMP_PAYLOAD;
       buffer[3] = out_seq; /* add an outgoing seq no before fwd */
       uip_icmp6_send(rpl_get_parent_ipaddr(dag->preferred_parent),
-                     ICMP6_RPL, RPL_CODE_DAO, buffer_length);
+                     ICMP6_RPL, RPL_CODE_DAO, buffer_length); num_dao++;
     }
     if(should_ack) {
       PRINTF("RPL: Sending DAO ACK\n");
@@ -1052,6 +1057,9 @@ handle_dao_retransmission(void *ptr)
       /* Inform the objective function about the timeout. */
       instance->of->dao_ack_callback(parent, RPL_DAO_ACK_TIMEOUT);
     }
+
+    PRINTF("RPL: seq:%d trans:%d >= DAO_MAX_RETRANSMISSIONS.. Failed to transmit DAO. rpl_local_repair() called.", instance->my_dao_seqno, instance->my_dao_transmissions);//ksh..
+
 
     /* Perform local repair and hope to find another parent. */
     rpl_local_repair(instance);
@@ -1233,7 +1241,7 @@ dao_output_target_seq(rpl_parent_t *parent, uip_ipaddr_t *prefix,
   PRINTF("\n");
 
   if(dest_ipaddr != NULL) {
-    uip_icmp6_send(dest_ipaddr, ICMP6_RPL, RPL_CODE_DAO, pos);
+    uip_icmp6_send(dest_ipaddr, ICMP6_RPL, RPL_CODE_DAO, pos); num_dao++;
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -1316,7 +1324,7 @@ dao_ack_input(void)
         PRINT6ADDR(nexthop);
         PRINTF("\n");
         buffer[2] = re->state.dao_seqno_in;
-        uip_icmp6_send(nexthop, ICMP6_RPL, RPL_CODE_DAO_ACK, 4);
+        uip_icmp6_send(nexthop, ICMP6_RPL, RPL_CODE_DAO_ACK, 4); num_dao_ack++;
       }
 
       if(status >= RPL_DAO_ACK_UNABLE_TO_ACCEPT) {
@@ -1349,7 +1357,7 @@ dao_ack_output(rpl_instance_t *instance, uip_ipaddr_t *dest, uint8_t sequence,
   buffer[2] = sequence;
   buffer[3] = status;
 
-  uip_icmp6_send(dest, ICMP6_RPL, RPL_CODE_DAO_ACK, 4);
+  uip_icmp6_send(dest, ICMP6_RPL, RPL_CODE_DAO_ACK, 4); num_dao_ack++;
 #endif /* RPL_WITH_DAO_ACK */
 }
 /*---------------------------------------------------------------------------*/

@@ -52,6 +52,13 @@
 #define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
+/*
+#define DEBUG DEBUG_PRINT
+#include "net/net-debug.h"
+#include "net/ip/uip-debug.h"
+*/
+
+
 /* A configurable function called after update of the RPL DIO interval */
 #ifdef RPL_CALLBACK_NEW_DIO_INTERVAL
 void RPL_CALLBACK_NEW_DIO_INTERVAL(uint8_t dio_interval);
@@ -97,7 +104,10 @@ handle_periodic_timer(void *ptr)
   /* handle DIS */
 #if RPL_DIS_SEND
   next_dis++;
-  if(dag == NULL && next_dis >= RPL_DIS_INTERVAL) {
+
+  if(dag == NULL && next_dis >= RPL_DIS_INTERVAL) { //original..
+
+
     next_dis = 0;
     dis_output(NULL);
   }
