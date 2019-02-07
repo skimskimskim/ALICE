@@ -21,6 +21,13 @@ ALICE sample code location: ../../examples/ipv6/rpl-udp-alice-log/
 
 
 
+When using this source code, please cite the following paper:
+
+Seohyang Kim, Hyung-Sin Kim, and Chongkwon Kim, ALICE: Autonomous Link-based Cell Scheduling for TSCH, In the 18th ACM/IEEE International Conference on Information Processing in Sensor Networks (IPSN'19), April 16-18, 2019, Montreal, Canada.
+
+
+
+
 # Orchestra
 
 ## Overview
