@@ -174,22 +174,18 @@ alice_RESCHEDULE_unicast_slotframe(void){ //ksh.  //remove current slotframe sch
      l->link_options=link_option_up;
      l->timeslot=timeslot_us_p;
      l->channel_offset=channel_offset_us_p;
-
-
      l = list_item_next(l);     
+     
      if(l!=NULL){
         //parent downlink schedule
         l->link_options=link_option_down;
         l->timeslot=timeslot_ds_p;
         l->channel_offset=channel_offset_ds_p;
+        l = list_item_next(l);
      }
-
   }
-
-
-
 //schedule the links between child-node and current node   //(lookup all route next hops)
-  l = list_item_next(l);
+ 
  }//is_root()! end
 
 
@@ -207,20 +203,20 @@ alice_RESCHEDULE_unicast_slotframe(void){ //ksh.  //remove current slotframe sch
 
 #ifdef ALICE_TSCH_CALLBACK_SLOTFRAME_START //ksh sf update
            while(l!=NULL){
-
-              l = list_item_next(l);
+              
               //parent downlink schedule
               l->link_options=link_option_up;
               l->timeslot=timeslot_us;
               l->channel_offset=channel_offset_us;
-
               l = list_item_next(l);     
+              
               if(l!=NULL){
                  //parent downlink schedule
                  l->link_options=link_option_down;
                  l->timeslot=timeslot_ds;
                  l->channel_offset=channel_offset_ds;
-              }           
+                 l = list_item_next(l);
+              }
            }
 #endif
            return;
@@ -256,18 +252,18 @@ alice_RESCHEDULE_unicast_slotframe(void){ //ksh.  //remove current slotframe sch
     l->link_options=link_option_up;
     l->timeslot=timeslot_us;
     l->channel_offset=channel_offset_us;
-
     l = list_item_next(l);     
+    
     if(l!=NULL){
        //parent downlink schedule
        l->link_options=link_option_down;
        l->timeslot=timeslot_ds;
        l->channel_offset=channel_offset_ds;
+       l = list_item_next(l);
     }
 
     //move to the next item for while loop.
-    item = nbr_table_next(nbr_routes, item);
-    l = list_item_next(l);
+    item = nbr_table_next(nbr_routes, item);    
   } //while end..
 
 
