@@ -172,7 +172,7 @@
 //#define SEQUENTIAL_SEND_INTERVAL 40 //40// 20 // (T * CLOCK_SECOND) // openlab CLOCK_SECOND=100  //20 40 80 160
 
 
-#define START_AFTER_PERIOD (30 * 60 * (CLOCK_SECOND)) //ksh.. RPL construction.. no udp packet during this time.. 
+#define START_AFTER_PERIOD (5 * 60 * (CLOCK_SECOND)) //ksh.. RPL construction.. no udp packet during this time.. 
 
 
 #define MAX_NUM_DOWNSTREAM_PACKETS 5000000 //ksh..
