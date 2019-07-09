@@ -1,6 +1,6 @@
 ALICE implementation in Contiki-NG
 ============================
-source code available at : https://github.com/skimskimskim/contiki-ng
+The source code is available at : https://github.com/skimskimskim/contiki-ng
 
 
 ALICE 
