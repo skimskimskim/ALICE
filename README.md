@@ -1,3 +1,8 @@
+ALICE implementation in Contiki-NG
+============================
+source code available at : https://github.com/skimskimskim/contiki-ng
+
+
 ALICE 
 ============================
 ALICE is an autonomous link-based TSCH cell scheduling solution. ALICE uses Contiki Orchestra code as its skeleton code.
